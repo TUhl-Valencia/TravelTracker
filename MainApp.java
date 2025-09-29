@@ -5,11 +5,32 @@ import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Scanner;
 
+/*
+ * Name: Todd Uhl
+ * Course: 202610 Software Development I CEN-3024C-14877
+ * Date: 9/29/2025
+ *
+ * Class: MainApp
+ * This is the main driver class for the Travel Tracker program.
+ * It handles all user interaction, displays menus, calls TripService methods,
+ * and manages importing and exporting trips to files.
+ *
+ * This program allows users to create, view, update, delete, and manage their trips.
+ * It also supports marking trips as complete, sorting by various criteria, and importing
+ * and exporting trip data.
+ */
 public class MainApp {
     private static final Scanner scanner = new Scanner(System.in);
     private static final TripService tripService = new TripService();
     private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy");
 
+    /*
+     * Method: main
+     * Purpose: Entry point of the program, displays the main menu and handles user selections in a loop.
+     * Arguments:
+     *  - args (String[]): Command-line arguments (not used)
+     * Return: void
+     */
     public static void main(String[] args) {
         while (true) {
             System.out.println("\n--- Travel Tracker ---");
@@ -38,7 +59,10 @@ public class MainApp {
         }
     }
 
-    // Add new trip
+    /*
+     * Method: addTrip
+     * Purpose: Prompts the user for trip details creates a new trip object and displays confirmation.
+     */
     private static void addTrip() {
         System.out.println("\n--- Add Trip ---");
         System.out.print("Destination: ");
@@ -57,7 +81,13 @@ public class MainApp {
         System.out.println("Trip added: " + trip);
     }
 
-    // View trips (accepts a list so we can use sorted lists)
+    /*
+     * Method: viewTrips
+     * Purpose: Displays all trips or a provided sorted list of trips.
+     * Arguments:
+     *  - trips (List<Trip>): List of trips to display
+     * Return: void
+     */
     private static void viewTrips(List<Trip> trips) {
         if (trips.isEmpty()) {
             System.out.println("No trips found.");
@@ -66,7 +96,10 @@ public class MainApp {
         trips.forEach(System.out::println);
     }
 
-    // Update trip
+    /*
+     * Method: updateTrip
+     * Purpose: Allows user to update details of an existing trip by its ID.
+     */
     private static void updateTrip() {
         System.out.print("Enter Trip ID to update (or 0000 to cancel): ");
         String input = scanner.nextLine();
@@ -103,7 +136,10 @@ public class MainApp {
         System.out.println("Trip updated: " + trip);
     }
 
-    // Delete trip
+    /*
+     * Method: deleteTrip
+     * Purpose: Deletes a trip based on the entered ID.
+     */
     private static void deleteTrip() {
         System.out.print("Enter Trip ID to delete: ");
         int id = Integer.parseInt(scanner.nextLine());
@@ -114,7 +150,10 @@ public class MainApp {
         }
     }
 
-    // Toggle complete status
+    /*
+     * Method: toggleTripCompletion
+     * Purpose: Toggles the completion status of a trip.
+     */
     private static void toggleTripCompletion() {
         System.out.print("Enter Trip ID: ");
         int id = Integer.parseInt(scanner.nextLine());
@@ -127,7 +166,10 @@ public class MainApp {
         System.out.println("Trip marked as " + (trip.isCompleted() ? "completed." : "planning."));
     }
 
-    // Sorting menu
+    /*
+     * Method: sortMenu
+     * Purpose: Displays sort options and shows trips in the chosen order.
+     */
     private static void sortMenu() {
         System.out.println("\n--- Sorting Options ---");
         System.out.println("1. By Trip ID");
@@ -148,7 +190,10 @@ public class MainApp {
         }
     }
 
-    // File menu for import/export
+    /*
+     * Method: fileMenu
+     * Purpose: Handles import/export options and prompts for filename.
+     */
     private static void fileMenu() {
         System.out.println("\n--- Menu ---");
         System.out.println("1. Export Trips to File");
@@ -164,8 +209,14 @@ public class MainApp {
         else System.out.println("Invalid choice.");
     }
 
+    /*
+     * Method: exportTrips
+     * Purpose: Writes all trips to a specified file in text format .txt
+     * Arguments:
+     *  - filename (String): Name of file to save to
+     * Return: void
+     */
     private static void exportTrips(String filename) {
-        // Ensure filename ends with .txt
         if (!filename.toLowerCase().endsWith(".txt")) {
             filename += ".txt";
         }
@@ -180,8 +231,13 @@ public class MainApp {
         }
     }
 
-
-    // Import trips
+    /*
+     * Method: importTrips
+     * Purpose: Reads a file of trips, parses them, and adds them to the trip list.
+     * Arguments:
+     *  - filename (String): Name of file to read from
+     * Return: void
+     */
     private static void importTrips(String filename) {
         try (BufferedReader reader = new BufferedReader(new FileReader(filename))) {
             String line;
@@ -217,7 +273,13 @@ public class MainApp {
         }
     }
 
-    // Ask user for date and validate MM/dd/yyyy
+    /*
+     * Method: askForDate
+     * Purpose: Prompts the user for a date and validates format before returning it.
+     * Arguments:
+     *  - prompt (String): Text to display to user
+     * Return: LocalDate - parsed date entered by user
+     */
     private static LocalDate askForDate(String prompt) {
         while (true) {
             System.out.print(prompt);
