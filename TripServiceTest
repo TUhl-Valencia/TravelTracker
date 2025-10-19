@@ -1,0 +1,129 @@
+import org.junit.jupiter.api.*;
+import java.io.*;
+import java.nio.file.*;
+import java.time.LocalDate;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+/*
+ * Name: Todd Uhl
+ * Course: 202610 Software Development I CEN-3024C-14877
+ * Date: 10/14/2025
+ *
+ * Class: TripServiceTest
+ * Purpose: This JUnit test class verifies all CRUD operations and custom actions
+ * of the Travel Tracker Database Management System. Tests simulate typical user
+ * behavior including adding, deleting, updating, sorting, and file operations.
+ */
+public class TripServiceTest {
+
+    private TripService tripService;
+    private LocalDate start;
+    private LocalDate end;
+
+    @BeforeEach
+    void setup() {
+        tripService = new TripService();
+        start = LocalDate.of(2025, 1, 1);
+        end = LocalDate.of(2025, 1, 10);
+    }
+
+    @Test
+    @DisplayName("Test Create (Add) Trip")
+    void testAddTrip() {
+        Trip trip = tripService.createTrip("Paris", start, end, 1200.50, "Romantic getaway");
+        assertEquals(1, tripService.getTrips().size(), "Trip list should contain one trip");
+        assertEquals("Paris", trip.getDestination());
+        System.out.println("PASS: Trip successfully added -> " + trip);
+    }
+
+    @Test
+    @DisplayName("Test Find Trip by ID")
+    void testFindTrip() {
+        Trip added = tripService.createTrip("Tokyo", start, end, 2500.00, "Cherry blossom trip");
+        Trip found = tripService.findTrip(added.getId());
+        assertNotNull(found, "Trip should be found by ID");
+        assertEquals("Tokyo", found.getDestination());
+        System.out.println("PASS: Trip found by ID -> " + found);
+    }
+
+    @Test
+    @DisplayName("Test Delete Trip by ID")
+    void testDeleteTrip() {
+        Trip added = tripService.createTrip("London", start, end, 1800.00, "See Big Ben");
+        boolean deleted = tripService.deleteTrip(added.getId());
+        assertTrue(deleted, "Trip should be deleted successfully");
+        assertTrue(tripService.getTrips().isEmpty(), "Trip list should be empty after deletion");
+        System.out.println("PASS: Trip successfully deleted");
+    }
+
+    @Test
+    @DisplayName("Test Update Trip Attributes")
+    void testUpdateTripAttributes() {
+        Trip trip = tripService.createTrip("Berlin", start, end, 1500.00, "History tour");
+
+        // Simulate user updating values
+        trip.setDestination("Munich");
+        trip.setBudget(1800.00);
+        trip.setNotes("Updated notes");
+        trip.setStartDate(LocalDate.of(2025, 2, 1));
+        trip.setEndDate(LocalDate.of(2025, 2, 8));
+
+        assertEquals("Munich", trip.getDestination());
+        assertEquals(1800.00, trip.getBudget());
+        assertEquals("Updated notes", trip.getNotes());
+        assertEquals(LocalDate.of(2025, 2, 1), trip.getStartDate());
+        System.out.println("PASS: Trip successfully updated -> " + trip);
+    }
+
+    @Test
+    @DisplayName("Test Custom Action: Sort Trips by Budget (Low to High)")
+    void testSortByBudgetLowToHigh() {
+        tripService.createTrip("Rome", start, end, 3000.00, "");
+        tripService.createTrip("Madrid", start, end, 1200.00, "");
+        tripService.createTrip("Oslo", start, end, 2000.00, "");
+
+        List<Trip> sorted = tripService.sortByBudgetLowToHigh();
+        assertEquals("Madrid", sorted.get(0).getDestination());
+        assertEquals("Rome", sorted.get(sorted.size() - 1).getDestination());
+        System.out.println("PASS: Trips sorted by budget (Low → High)");
+    }
+
+    @Test
+    @DisplayName("Test Import from File (File Can Be Opened and Read)")
+    void testFileImport() throws IOException {
+        String filename = "test_trips.txt";
+        String sampleData = "1|Paris|01/01/2025|01/10/2025|1500.00|Eiffel|false\n";
+        Files.writeString(Path.of(filename), sampleData);
+
+        // Simulate file import using MainApp logic
+        try (BufferedReader reader = new BufferedReader(new FileReader(filename))) {
+            assertTrue(reader.ready(), "File should be readable");
+            System.out.println("PASS: File successfully opened for import test");
+        }
+
+
+    }
+
+    @Test
+    @DisplayName("Test Export to File (Trips Saved Correctly)")
+    void testFileExport() throws IOException {
+        Trip trip = tripService.createTrip("Hawaii", start, end, 5000.00, "Vacation");
+        String filename = "export_test.txt";
+
+        try (PrintWriter writer = new PrintWriter(new FileWriter(filename))) {
+            for (Trip t : tripService.getTrips()) {
+                writer.println(t.toExportString());
+            }
+        }
+
+        assertTrue(Files.exists(Path.of(filename)), "Export file should exist");
+        String content = Files.readString(Path.of(filename));
+        assertTrue(content.contains("Hawaii"), "File content should contain trip data");
+        System.out.println("PASS: Trips successfully exported to file");
+
+    }
+
+}
+
