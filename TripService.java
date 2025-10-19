@@ -1,6 +1,7 @@
 import java.time.LocalDate;
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 
 /*
  * Name: Todd Uhl
@@ -8,46 +9,64 @@ import java.util.stream.Collectors;
  * Date: 9/29/2025
  *
  * Class: TripService
- * This class manages all business logic for handling trips.
- * It provides methods to create, find, sort, and delete trips.
+ * This class manages a collection of Trip objects, providing functionality to add, find, delete,
+ * import, and sort trips. It acts as the business logic layer between the MainApp and the Trip model.
  */
 public class TripService {
-    private List<Trip> trips = new ArrayList<>(); // All trips stored here
-    private int nextId = 1; // Keeps trip IDs unique
+    private final List<Trip> trips;       // List of all trips
+    private int nextId;                   // Auto-incrementing ID counter
+
+    // Constructor initializes empty list and sets ID counter
+    public TripService() {
+        this.trips = new ArrayList<>();
+        this.nextId = 1;
+    }
 
     /*
      * Method: createTrip
-     * Purpose: Creates a new Trip object with a unique ID and adds it to the trip list.
+     * Purpose: Creates a new trip with an auto-generated ID and adds it to the list.
      * Arguments:
-     *  - destination (String): The trip destination
-     *  - startDate (LocalDate): Start date of the trip
-     *  - endDate (LocalDate): End date of the trip
-     *  - budget (double): Budget for the trip
-     *  - notes (String): Notes about the trip
-     * Return: Trip - the newly created Trip object
+     *  - destination (String)
+     *  - startDate (LocalDate)
+     *  - endDate (LocalDate)
+     *  - budget (double)
+     *  - notes (String)
+     * Return: Trip - the newly created trip object
      */
+
+    /*
+     * Note: Trip IDs are auto-incrementing and unique.
+     * Deleted trip IDs are not reused to maintain consistent references.
+     * This design choice ensures each trip has a distinct identifier,
+     * similar to how primary keys work in databases.
+     */
+
     public Trip createTrip(String destination, LocalDate startDate, LocalDate endDate, double budget, String notes) {
-        Trip trip = new Trip(nextId++, destination, startDate, endDate, budget, notes);
+        Trip trip = new Trip(nextId++, destination, startDate, endDate, budget, notes, false);
         trips.add(trip);
         return trip;
     }
 
     /*
      * Method: addImportedTrip
-     * Purpose: Adds a Trip object from an imported file to the list, preserving its ID.
+     * Purpose: Adds a trip from a file import.
      * Arguments:
-     *  - trip (Trip): Trip object being imported
+     *  - trip (Trip): The trip object loaded from file
      * Return: void
      */
     public void addImportedTrip(Trip trip) {
         trips.add(trip);
-        nextId = Math.max(nextId, trip.getId() + 1);
+        if (trip.getId() >= nextId) {
+            nextId = trip.getId() + 1;
+
+
+        }
     }
 
     /*
      * Method: getTrips
-     * Purpose: Returns the list of all trips.
-     * Return: List<Trip> - all trips currently stored
+     * Purpose: Returns the full list of trips.
+     * Return: List<Trip> - all stored trips
      */
     public List<Trip> getTrips() {
         return trips;
@@ -55,10 +74,10 @@ public class TripService {
 
     /*
      * Method: findTrip
-     * Purpose: Finds and returns a trip by its ID.
+     * Purpose: Finds a trip by ID.
      * Arguments:
-     *  - id (int): The ID of the trip to search for
-     * Return: Trip - the trip with the matching ID or null if not found
+     *  - id (int): Trip ID
+     * Return: Trip - matching trip or null if not found
      */
     public Trip findTrip(int id) {
         return trips.stream().filter(t -> t.getId() == id).findFirst().orElse(null);
@@ -66,23 +85,36 @@ public class TripService {
 
     /*
      * Method: deleteTrip
-     * Purpose: Deletes a trip by its ID.
+     * Purpose: Deletes a trip by ID.
      * Arguments:
-     *  - id (int): The ID of the trip to delete
-     * Return: boolean true if the trip was removed or false if not found
+     *  - id (int): Trip ID
+     * Return: boolean - true if trip deleted, false if not found
      */
     public boolean deleteTrip(int id) {
         return trips.removeIf(t -> t.getId() == id);
     }
 
     /*
-     * Methods: sortById, sortByStartDate, sortByDestination, sortByBudgetLowToHigh, sortByBudgetHighToLow
-     * Purpose: Return sorted lists of trips based on different criteria.
-     * Return: List<Trip> - sorted list according to selected method
+     * Sorting methods
+     * Purpose: Return new lists of trips sorted by different criteria.
      */
-    public List<Trip> sortById() { return trips.stream().sorted(Comparator.comparingInt(Trip::getId)).collect(Collectors.toList()); }
-    public List<Trip> sortByStartDate() { return trips.stream().sorted(Comparator.comparing(Trip::getStartDate)).collect(Collectors.toList()); }
-    public List<Trip> sortByDestination() { return trips.stream().sorted(Comparator.comparing(Trip::getDestination)).collect(Collectors.toList()); }
-    public List<Trip> sortByBudgetLowToHigh() { return trips.stream().sorted(Comparator.comparingDouble(Trip::getBudget)).collect(Collectors.toList()); }
-    public List<Trip> sortByBudgetHighToLow() { return trips.stream().sorted(Comparator.comparingDouble(Trip::getBudget).reversed()).collect(Collectors.toList()); }
+    public List<Trip> sortById() {
+        return trips.stream().sorted(Comparator.comparingInt(Trip::getId)).toList();
+    }
+
+    public List<Trip> sortByStartDate() {
+        return trips.stream().sorted(Comparator.comparing(Trip::getStartDate)).toList();
+    }
+
+    public List<Trip> sortByDestination() {
+        return trips.stream().sorted(Comparator.comparing(Trip::getDestination, String.CASE_INSENSITIVE_ORDER)).toList();
+    }
+
+    public List<Trip> sortByBudgetLowToHigh() {
+        return trips.stream().sorted(Comparator.comparingDouble(Trip::getBudget)).toList();
+    }
+
+    public List<Trip> sortByBudgetHighToLow() {
+        return trips.stream().sorted(Comparator.comparingDouble(Trip::getBudget).reversed()).toList();
+    }
 }
