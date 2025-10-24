@@ -1,0 +1,331 @@
+import javafx.application.Application;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+import javafx.collections.transformation.FilteredList;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Scene;
+import javafx.scene.control.*;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.scene.layout.*;
+import javafx.scene.text.Font;
+import javafx.stage.Stage;
+
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+
+/*
+ * Name: Todd Uhl
+ * Course: 202610 Software Development I CEN-3024C-14877
+ * Date: 10/20/2025
+ *
+ * Class: TravelTrackerGUI
+ * Demo-ready, polished GUI with logo, colors, hover effects,
+ * table styling, and search bar for Travel Tracker Phase 3.
+ */
+public class TravelTrackerGUI extends Application {
+    private final TripService tripService = new TripService();
+    private final ObservableList<Trip> tripList = FXCollections.observableArrayList();
+    private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy");
+    private TableView<Trip> table;
+
+    @Override
+    public void start(Stage stage) {
+        stage.setTitle("Travel Tracker DMS");
+
+//Logo & Header
+        Image globeImage = new Image(getClass().getResourceAsStream("/globe.png"));
+        ImageView globeView = new ImageView(globeImage);
+        globeView.setFitHeight(150); // increased size
+        globeView.setPreserveRatio(true);
+
+// Header text
+        Label header = new Label("Travel Tracker");
+        header.setFont(new Font("Segoe UI", 48)); // bigger font
+        header.setStyle("-fx-text-fill: #ffffff; -fx-font-weight: bold;");
+
+// Stack image above text
+        VBox headerBox = new VBox(10, globeView, header); // 10 px spacing
+        headerBox.setAlignment(Pos.CENTER); // center both horizontally
+        headerBox.setPadding(new Insets(20));
+        headerBox.setStyle("-fx-background-color: #4682b4; -fx-border-radius: 5;");
+
+
+        //Table Setup
+        table = new TableView<>();
+
+        table.setStyle(
+                "-fx-selection-bar: #3399FF;" +
+                "-fx-selection-bar-text: black;"
+        );
+        TableColumn<Trip, Integer> idCol = new TableColumn<>("ID");
+        idCol.setCellValueFactory(c -> new javafx.beans.property.SimpleObjectProperty<>(c.getValue().getId()));
+
+        TableColumn<Trip, String> destCol = new TableColumn<>("Destination");
+        destCol.setCellValueFactory(c -> new javafx.beans.property.SimpleStringProperty(c.getValue().getDestination()));
+
+        TableColumn<Trip, String> dateCol = new TableColumn<>("Dates");
+        dateCol.setCellValueFactory(c -> new javafx.beans.property.SimpleStringProperty(
+                c.getValue().getStartDate().format(formatter) + " - " + c.getValue().getEndDate().format(formatter)
+        ));
+
+        TableColumn<Trip, Double> budgetCol = new TableColumn<>("Budget ($)");
+        budgetCol.setCellValueFactory(c -> new javafx.beans.property.SimpleObjectProperty<>(c.getValue().getBudget()));
+
+        TableColumn<Trip, String> statusCol = new TableColumn<>("Status");
+        statusCol.setCellValueFactory(c -> new javafx.beans.property.SimpleStringProperty(
+                c.getValue().isCompleted() ? "Completed" : "Planning"
+        ));
+
+        table.getColumns().addAll(idCol, destCol, dateCol, budgetCol, statusCol);
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+
+        // Alternating row colors and completed highlight
+        table.setRowFactory(tv -> new TableRow<>() {
+            @Override
+            protected void updateItem(Trip trip, boolean empty) {
+                super.updateItem(trip, empty);
+                if (trip == null || empty) {
+                    setStyle("");
+                } else if (trip.isCompleted()) {
+                    setStyle("-fx-background-color: #d0f0c0;"); // green
+                } else if (getIndex() % 2 == 0) {
+                    setStyle("-fx-background-color: #f0f8ff;"); // light blue
+                } else {
+                    setStyle("-fx-background-color: #ffffff;");
+                }
+            }
+        });
+
+        //Input Fields
+        TextField destField = new TextField();
+        destField.setPromptText("Destination");
+
+        DatePicker startDatePicker = new DatePicker();
+        DatePicker endDatePicker = new DatePicker();
+
+        TextField budgetField = new TextField();
+        budgetField.setPromptText("Budget");
+
+        TextField notesField = new TextField();
+        notesField.setPromptText("Notes");
+
+        Button addBtn = createStyledButton("Add Trip");
+        Button updateBtn = createStyledButton("Update Trip");
+        Button deleteBtn = createStyledButton("Delete Trip");
+        Button markBtn = createStyledButton("Toggle Complete");
+        Button exportBtn = createStyledButton("Export Trips");
+        Button importBtn = createStyledButton("Import Trips");
+
+        //Sorting ComboBox
+        ComboBox<String> sortBox = new ComboBox<>();
+        sortBox.getItems().addAll(
+                "Sort by ID",
+                "Sort by Start Date",
+                "Sort by Destination",
+                "Sort by Budget (Low → High)",
+                "Sort by Budget (High → Low)"
+        );
+        sortBox.setPromptText("Sort Trips");
+
+        Button sortBtn = createStyledButton("Apply Sort");
+
+        HBox sortBoxArea = new HBox(10, sortBox, sortBtn);
+        sortBoxArea.setPadding(new Insets(10));
+        sortBoxArea.setAlignment(Pos.CENTER_LEFT);
+
+        //Search Bar
+        TextField searchField = new TextField();
+        searchField.setPromptText("Search by Destination or ID...");
+        Button clearSearchBtn = createStyledButton("Clear");
+        HBox searchArea = new HBox(10, new Label("Search:"), searchField, clearSearchBtn);
+        searchArea.setPadding(new Insets(10));
+        searchArea.setAlignment(Pos.CENTER_LEFT);
+
+        FilteredList<Trip> filteredData = new FilteredList<>(tripList, p -> true);
+        table.setItems(filteredData);
+
+        searchField.textProperty().addListener((obs, oldVal, newVal) -> {
+            String filter = newVal.toLowerCase().trim();
+            filteredData.setPredicate(trip -> {
+                if (filter.isEmpty()) return true;
+                return trip.getDestination().toLowerCase().contains(filter) ||
+                        String.valueOf(trip.getId()).contains(filter);
+            });
+        });
+
+        clearSearchBtn.setOnAction(e -> {
+            searchField.clear();
+            filteredData.setPredicate(p -> true);
+        });
+
+        //Layout for Inputs and Buttons
+        HBox inputBox = new HBox(10, destField, startDatePicker, endDatePicker, budgetField, notesField, addBtn);
+        inputBox.setPadding(new Insets(10));
+        inputBox.setAlignment(Pos.CENTER_LEFT);
+
+        HBox buttonBox = new HBox(10, updateBtn, deleteBtn, markBtn, exportBtn, importBtn);
+        buttonBox.setPadding(new Insets(10));
+        buttonBox.setAlignment(Pos.CENTER_LEFT);
+
+        //Event Handlers
+        addBtn.setOnAction(e -> {
+            try {
+                String dest = destField.getText().trim();
+                LocalDate start = startDatePicker.getValue();
+                LocalDate end = endDatePicker.getValue();
+                double budget = Double.parseDouble(budgetField.getText().trim());
+                String notes = notesField.getText().trim();
+
+                if (dest.isEmpty() || start == null || end == null) {
+                    showAlert("Error", "Please fill out all required fields.");
+                    return;
+                }
+
+                Trip trip = tripService.createTrip(dest, start, end, budget, notes);
+                tripList.add(trip);
+                clearFields(destField, startDatePicker, endDatePicker, budgetField, notesField);
+            } catch (NumberFormatException ex) {
+                showAlert("Error", "Invalid budget amount.");
+            }
+        });
+
+        updateBtn.setOnAction(e -> {
+            Trip selected = table.getSelectionModel().getSelectedItem();
+            if (selected == null) {
+                showAlert("Warning", "Select a trip to update.");
+                return;
+            }
+
+            selected.setDestination(destField.getText().isEmpty() ? selected.getDestination() : destField.getText());
+            if (startDatePicker.getValue() != null) selected.setStartDate(startDatePicker.getValue());
+            if (endDatePicker.getValue() != null) selected.setEndDate(endDatePicker.getValue());
+            if (!budgetField.getText().isEmpty()) selected.setBudget(Double.parseDouble(budgetField.getText()));
+            if (!notesField.getText().isEmpty()) selected.setNotes(notesField.getText());
+
+            table.refresh();
+            clearFields(destField, startDatePicker, endDatePicker, budgetField, notesField);
+        });
+
+        deleteBtn.setOnAction(e -> {
+            Trip selected = table.getSelectionModel().getSelectedItem();
+            if (selected != null) {
+                tripService.deleteTrip(selected.getId());
+                tripList.remove(selected);
+            } else {
+                showAlert("Warning", "Select a trip to delete.");
+            }
+        });
+
+        markBtn.setOnAction(e -> {
+            Trip selected = table.getSelectionModel().getSelectedItem();
+            if (selected != null) {
+                selected.setCompleted(!selected.isCompleted());
+                table.refresh();
+            } else {
+                showAlert("Warning", "Select a trip to mark complete.");
+            }
+        });
+
+        exportBtn.setOnAction(e -> {
+            TextInputDialog dialog = new TextInputDialog("trips.txt");
+            dialog.setHeaderText("Enter filename to export:");
+            dialog.showAndWait().ifPresent(filename -> {
+                try {
+                    java.io.PrintWriter writer = new java.io.PrintWriter(new java.io.FileWriter(filename));
+                    for (Trip trip : tripService.getTrips()) writer.println(trip.toExportString());
+                    writer.close();
+                    showAlert("Success", "Trips exported to " + filename);
+                } catch (Exception ex) {
+                    showAlert("Error", "Failed to export trips.");
+                }
+            });
+        });
+
+        importBtn.setOnAction(e -> {
+            TextInputDialog dialog = new TextInputDialog("trips.txt");
+            dialog.setHeaderText("Enter filename to import:");
+            dialog.showAndWait().ifPresent(filename -> {
+                try (var reader = new java.io.BufferedReader(new java.io.FileReader(filename))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        String[] parts = line.split("\\|");
+                        if (parts.length == 7) {
+                            Trip t = new Trip(
+                                    Integer.parseInt(parts[0]),
+                                    parts[1],
+                                    LocalDate.parse(parts[2], formatter),
+                                    LocalDate.parse(parts[3], formatter),
+                                    Double.parseDouble(parts[4]),
+                                    parts[5],
+                                    Boolean.parseBoolean(parts[6])
+                            );
+                            tripService.addImportedTrip(t);
+                            tripList.add(t);
+                        }
+                    }
+                    showAlert("Success", "Trips imported from " + filename);
+                } catch (Exception ex) {
+                    showAlert("Error", "Could not import trips.");
+                }
+            });
+        });
+
+        sortBtn.setOnAction(e -> {
+            String option = sortBox.getValue();
+            if (option == null) {
+                showAlert("Info", "Select a sorting option first.");
+                return;
+            }
+
+            List<Trip> sorted = switch (option) {
+                case "Sort by ID" -> tripService.sortById();
+                case "Sort by Start Date" -> tripService.sortByStartDate();
+                case "Sort by Destination" -> tripService.sortByDestination();
+                case "Sort by Budget (Low → High)" -> tripService.sortByBudgetLowToHigh();
+                case "Sort by Budget (High → Low)" -> tripService.sortByBudgetHighToLow();
+                default -> tripService.getTrips();
+            };
+
+            tripList.setAll(sorted);
+        });
+
+        //Final Layout
+        VBox layout = new VBox(10, headerBox, inputBox, buttonBox, sortBoxArea, searchArea, table);
+        layout.setPadding(new Insets(15));
+        layout.setStyle("-fx-background-color: #e6f2ff;");
+
+        Scene scene = new Scene(layout, 1000, 650);
+        stage.setScene(scene);
+        stage.show();
+    }
+
+    private Button createStyledButton(String text) {
+        Button btn = new Button(text);
+        btn.setStyle("-fx-background-color: #4682b4; -fx-text-fill: white; -fx-font-weight: bold;");
+        btn.setOnMouseEntered(e -> btn.setStyle("-fx-background-color: #5a9bd4; -fx-text-fill: white; -fx-font-weight: bold;"));
+        btn.setOnMouseExited(e -> btn.setStyle("-fx-background-color: #4682b4; -fx-text-fill: white; -fx-font-weight: bold;"));
+        return btn;
+    }
+
+    private void clearFields(TextField destField, DatePicker start, DatePicker end, TextField budget, TextField notes) {
+        destField.clear();
+        start.setValue(null);
+        end.setValue(null);
+        budget.clear();
+        notes.clear();
+    }
+
+    private void showAlert(String title, String msg) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle(title);
+        alert.setContentText(msg);
+        alert.showAndWait();
+    }
+
+    public static void main(String[] args) {
+        launch(args);
+    }
+}
