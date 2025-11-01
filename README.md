@@ -13,7 +13,7 @@ Technologies used include Java 17 or higher, JavaFX for the graphical interface,
 
 To run the program, make sure Java and JavaFX are installed and configured. Run MainApp.java to start the program. Use the interface to manage trips and export data as needed.
 
-To test functionality, run TravelServiceTest.java using JUnit 5.
+To test functionality, run TripServiceTest.java using JUnit 5.
 
 Author: Todd Uhl
 Valencia College, Fall 2025
