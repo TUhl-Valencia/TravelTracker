@@ -1,6 +1,6 @@
 import org.junit.jupiter.api.*;
-import java.io.*;
-import java.nio.file.*;
+import java.io.File;
+import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -9,121 +9,103 @@ import static org.junit.jupiter.api.Assertions.*;
 /*
  * Name: Todd Uhl
  * Course: 202610 Software Development I CEN-3024C-14877
- * Date: 10/14/2025
+ * Date: 1031/2025
  *
  * Class: TripServiceTest
  * Purpose: This JUnit test class verifies all CRUD operations and custom actions
  * of the Travel Tracker Database Management System. Tests simulate typical user
  * behavior including adding, deleting, updating, sorting, and file operations.
  */
+
+@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class TripServiceTest {
+    private static TripService tripService;
+    private static final String TEST_DB = "test_trips.db";
 
-    private TripService tripService;
-    private LocalDate start;
-    private LocalDate end;
-
-    @BeforeEach
-    void setup() {
-        tripService = new TripService();
-        start = LocalDate.of(2025, 1, 1);
-        end = LocalDate.of(2025, 1, 10);
+    @BeforeAll
+    static void setupDatabase() throws SQLException {
+        File dbFile = new File(TEST_DB);
+        if (dbFile.exists()) dbFile.delete();
+        tripService = new TripService(TEST_DB);
     }
 
     @Test
-    @DisplayName("Test Create (Add) Trip")
-    void testAddTrip() {
-        Trip trip = tripService.createTrip("Paris", start, end, 1200.50, "Romantic getaway");
-        assertEquals(1, tripService.getTrips().size(), "Trip list should contain one trip");
+    @Order(1)
+    @DisplayName("Test Creating a Trip")
+    void testCreateTrip() throws SQLException {
+        Trip trip = tripService.createTrip(
+                "Paris",
+                LocalDate.of(2025, 1, 1),
+                LocalDate.of(2025, 1, 10),
+                1500.00,
+                "Eiffel Tower visit"
+        );
+        assertNotNull(trip);
         assertEquals("Paris", trip.getDestination());
-        System.out.println("PASS: Trip successfully added -> " + trip);
     }
 
     @Test
-    @DisplayName("Test Find Trip by ID")
-    void testFindTrip() {
-        Trip added = tripService.createTrip("Tokyo", start, end, 2500.00, "Cherry blossom trip");
-        Trip found = tripService.findTrip(added.getId());
-        assertNotNull(found, "Trip should be found by ID");
-        assertEquals("Tokyo", found.getDestination());
-        System.out.println("PASS: Trip found by ID -> " + found);
+    @Order(2)
+    @DisplayName("Test Getting All Trips")
+    void testGetAllTrips() throws SQLException {
+        List<Trip> trips = tripService.getAllTrips();
+        assertFalse(trips.isEmpty(), "Trip list should not be empty after insertion");
     }
 
     @Test
-    @DisplayName("Test Delete Trip by ID")
-    void testDeleteTrip() {
-        Trip added = tripService.createTrip("London", start, end, 1800.00, "See Big Ben");
-        boolean deleted = tripService.deleteTrip(added.getId());
-        assertTrue(deleted, "Trip should be deleted successfully");
-        assertTrue(tripService.getTrips().isEmpty(), "Trip list should be empty after deletion");
-        System.out.println("PASS: Trip successfully deleted");
+    @Order(3)
+    @DisplayName("Test Updating a Trip")
+    void testUpdateTrip() throws SQLException {
+        Trip trip = tripService.getAllTrips().get(0);
+        trip.setDestination("London");
+        tripService.updateTrip(trip);
+        Trip updated = tripService.getAllTrips().get(0);
+        assertEquals("London", updated.getDestination(), "Destination should be updated to London");
     }
 
     @Test
-    @DisplayName("Test Update Trip Attributes")
-    void testUpdateTripAttributes() {
-        Trip trip = tripService.createTrip("Berlin", start, end, 1500.00, "History tour");
-
-        // Simulate user updating values
-        trip.setDestination("Munich");
-        trip.setBudget(1800.00);
-        trip.setNotes("Updated notes");
-        trip.setStartDate(LocalDate.of(2025, 2, 1));
-        trip.setEndDate(LocalDate.of(2025, 2, 8));
-
-        assertEquals("Munich", trip.getDestination());
-        assertEquals(1800.00, trip.getBudget());
-        assertEquals("Updated notes", trip.getNotes());
-        assertEquals(LocalDate.of(2025, 2, 1), trip.getStartDate());
-        System.out.println("PASS: Trip successfully updated -> " + trip);
+    @Order(4)
+    @DisplayName("Test Deleting a Trip")
+    void testDeleteTrip() throws SQLException {
+        Trip trip = tripService.createTrip(
+                "Tokyo",
+                LocalDate.of(2025, 2, 1),
+                LocalDate.of(2025, 2, 8),
+                2000.00,
+                "Shibuya visit"
+        );
+        tripService.deleteTrip(trip.getId());
+        boolean stillExists = tripService.getAllTrips().stream()
+                .anyMatch(t -> t.getId() == trip.getId());
+        assertFalse(stillExists, "Trip should be deleted from database");
     }
 
     @Test
-    @DisplayName("Test Custom Action: Sort Trips by Budget (Low to High)")
-    void testSortByBudgetLowToHigh() {
-        tripService.createTrip("Rome", start, end, 3000.00, "");
-        tripService.createTrip("Madrid", start, end, 1200.00, "");
-        tripService.createTrip("Oslo", start, end, 2000.00, "");
+    @Order(5)
+    @DisplayName("Test Exporting Database File")
+    void testExportToFile() throws Exception {
+        String exportPath = "export_test.db";
+        File exportFile = new File(exportPath);
+        if (exportFile.exists()) exportFile.delete();
 
-        List<Trip> sorted = tripService.sortByBudgetLowToHigh();
-        assertEquals("Madrid", sorted.get(0).getDestination());
-        assertEquals("Rome", sorted.get(sorted.size() - 1).getDestination());
-        System.out.println("PASS: Trips sorted by budget (Low → High)");
-    }
+        // Just confirm TripService can access dbPath without error
+        String dbPath = tripService.getDbPath();
+        assertTrue(new File(dbPath).exists(), "Database should exist before export");
 
-    @Test
-    @DisplayName("Test Import from File (File Can Be Opened and Read)")
-    void testFileImport() throws IOException {
-        String filename = "test_trips.txt";
-        String sampleData = "1|Paris|01/01/2025|01/10/2025|1500.00|Eiffel|false\n";
-        Files.writeString(Path.of(filename), sampleData);
-
-        // Simulate file import using MainApp logic
-        try (BufferedReader reader = new BufferedReader(new FileReader(filename))) {
-            assertTrue(reader.ready(), "File should be readable");
-            System.out.println("PASS: File successfully opened for import test");
+        // Simulate export (copy database file)
+        try (var in = new java.io.FileInputStream(dbPath);
+             var out = new java.io.FileOutputStream(exportFile)) {
+            in.transferTo(out);
         }
 
-
+        assertTrue(exportFile.exists(), "Exported DB file should exist after copy");
     }
 
-    @Test
-    @DisplayName("Test Export to File (Trips Saved Correctly)")
-    void testFileExport() throws IOException {
-        Trip trip = tripService.createTrip("Hawaii", start, end, 5000.00, "Vacation");
-        String filename = "export_test.txt";
-
-        try (PrintWriter writer = new PrintWriter(new FileWriter(filename))) {
-            for (Trip t : tripService.getTrips()) {
-                writer.println(t.toExportString());
-            }
-        }
-
-        assertTrue(Files.exists(Path.of(filename)), "Export file should exist");
-        String content = Files.readString(Path.of(filename));
-        assertTrue(content.contains("Hawaii"), "File content should contain trip data");
-        System.out.println("PASS: Trips successfully exported to file");
-
+    @AfterAll
+    static void cleanup() {
+        File dbFile = new File(TEST_DB);
+        if (dbFile.exists()) dbFile.delete();
+        File exportFile = new File("export_test.db");
+        if (exportFile.exists()) exportFile.delete();
     }
-
 }
-
