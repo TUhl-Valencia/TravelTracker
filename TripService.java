@@ -1,120 +1,115 @@
+import java.io.*;
+import java.sql.*;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 
 /*
  * Name: Todd Uhl
  * Course: 202610 Software Development I CEN-3024C-14877
- * Date: 9/29/2025
+ * Date: 10/31/2025
  *
  * Class: TripService
  * This class manages a collection of Trip objects, providing functionality to add, find, delete,
  * import, and sort trips. It acts as the business logic layer between the MainApp and the Trip model.
  */
+
 public class TripService {
-    private final List<Trip> trips;       // List of all trips
-    private int nextId;                   // Auto-incrementing ID counter
+    private final Connection conn;
+    private final String dbPath;
 
-    // Constructor initializes empty list and sets ID counter
-    public TripService() {
-        this.trips = new ArrayList<>();
-        this.nextId = 1;
+    public TripService(String dbPath) throws SQLException {
+        this.dbPath = dbPath;
+        conn = DriverManager.getConnection("jdbc:sqlite:" + dbPath);
+        createTableIfNotExists();
     }
 
-    /*
-     * Method: createTrip
-     * Purpose: Creates a new trip with an auto-generated ID and adds it to the list.
-     * Arguments:
-     *  - destination (String)
-     *  - startDate (LocalDate)
-     *  - endDate (LocalDate)
-     *  - budget (double)
-     *  - notes (String)
-     * Return: Trip - the newly created trip object
-     */
-
-    /*
-     * Note: Trip IDs are auto-incrementing and unique.
-     * Deleted trip IDs are not reused to maintain consistent references.
-     * This design choice ensures each trip has a distinct identifier,
-     * similar to how primary keys work in databases.
-     */
-
-    public Trip createTrip(String destination, LocalDate startDate, LocalDate endDate, double budget, String notes) {
-        Trip trip = new Trip(nextId++, destination, startDate, endDate, budget, notes, false);
-        trips.add(trip);
-        return trip;
+    public String getDbPath() {
+        return dbPath;
     }
 
-    /*
-     * Method: addImportedTrip
-     * Purpose: Adds a trip from a file import.
-     * Arguments:
-     *  - trip (Trip): The trip object loaded from file
-     * Return: void
-     */
-    public void addImportedTrip(Trip trip) {
-        trips.add(trip);
-        if (trip.getId() >= nextId) {
-            nextId = trip.getId() + 1;
 
 
+    private void createTableIfNotExists() throws SQLException {
+        String sql = """
+            CREATE TABLE IF NOT EXISTS trips (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                destination TEXT NOT NULL,
+                start_date TEXT NOT NULL,
+                end_date TEXT NOT NULL,
+                budget REAL NOT NULL,
+                notes TEXT,
+                completed INTEGER NOT NULL
+            )
+        """;
+        try (Statement stmt = conn.createStatement()) {
+            stmt.execute(sql);
         }
     }
 
-    /*
-     * Method: getTrips
-     * Purpose: Returns the full list of trips.
-     * Return: List<Trip> - all stored trips
-     */
-    public List<Trip> getTrips() {
+    public Trip createTrip(String dest, LocalDate start, LocalDate end, double budget, String notes) throws SQLException {
+        String sql = "INSERT INTO trips(destination, start_date, end_date, budget, notes, completed) VALUES (?, ?, ?, ?, ?, 0)";
+        try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            ps.setString(1, dest);
+            ps.setString(2, start.toString());
+            ps.setString(3, end.toString());
+            ps.setDouble(4, budget);
+            ps.setString(5, notes);
+            ps.executeUpdate();
+            ResultSet rs = ps.getGeneratedKeys();
+            int id = rs.next() ? rs.getInt(1) : -1;
+            return new Trip(id, dest, start, end, budget, notes, false);
+        }
+    }
+
+    public List<Trip> getAllTrips() throws SQLException {
+        List<Trip> trips = new ArrayList<>();
+        String sql = "SELECT * FROM trips";
+        try (Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) {
+                trips.add(new Trip(
+                        rs.getInt("id"),
+                        rs.getString("destination"),
+                        LocalDate.parse(rs.getString("start_date")),
+                        LocalDate.parse(rs.getString("end_date")),
+                        rs.getDouble("budget"),
+                        rs.getString("notes"),
+                        rs.getInt("completed") == 1
+                ));
+            }
+        }
         return trips;
     }
 
-    /*
-     * Method: findTrip
-     * Purpose: Finds a trip by ID.
-     * Arguments:
-     *  - id (int): Trip ID
-     * Return: Trip - matching trip or null if not found
-     */
-    public Trip findTrip(int id) {
-        return trips.stream().filter(t -> t.getId() == id).findFirst().orElse(null);
+    public void updateTrip(Trip trip) throws SQLException {
+        String sql = "UPDATE trips SET destination=?, start_date=?, end_date=?, budget=?, notes=?, completed=? WHERE id=?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, trip.getDestination());
+            ps.setString(2, trip.getStartDate().toString());
+            ps.setString(3, trip.getEndDate().toString());
+            ps.setDouble(4, trip.getBudget());
+            ps.setString(5, trip.getNotes());
+            ps.setInt(6, trip.isCompleted() ? 1 : 0);
+            ps.setInt(7, trip.getId());
+            ps.executeUpdate();
+        }
     }
 
-    /*
-     * Method: deleteTrip
-     * Purpose: Deletes a trip by ID.
-     * Arguments:
-     *  - id (int): Trip ID
-     * Return: boolean - true if trip deleted, false if not found
-     */
-    public boolean deleteTrip(int id) {
-        return trips.removeIf(t -> t.getId() == id);
+    public void deleteTrip(int id) throws SQLException {
+        String sql = "DELETE FROM trips WHERE id=?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, id);
+            ps.executeUpdate();
+        }
     }
 
-    /*
-     * Sorting methods
-     * Purpose: Return new lists of trips sorted by different criteria.
-     */
-    public List<Trip> sortById() {
-        return trips.stream().sorted(Comparator.comparingInt(Trip::getId)).toList();
-    }
-
-    public List<Trip> sortByStartDate() {
-        return trips.stream().sorted(Comparator.comparing(Trip::getStartDate)).toList();
-    }
-
-    public List<Trip> sortByDestination() {
-        return trips.stream().sorted(Comparator.comparing(Trip::getDestination, String.CASE_INSENSITIVE_ORDER)).toList();
-    }
-
-    public List<Trip> sortByBudgetLowToHigh() {
-        return trips.stream().sorted(Comparator.comparingDouble(Trip::getBudget)).toList();
-    }
-
-    public List<Trip> sortByBudgetHighToLow() {
-        return trips.stream().sorted(Comparator.comparingDouble(Trip::getBudget).reversed()).toList();
+    public void exportToFile(String filename) throws IOException, SQLException {
+        List<Trip> trips = getAllTrips();
+        try (PrintWriter writer = new PrintWriter(new FileWriter(filename))) {
+            for (Trip t : trips) {
+                writer.println(t.toExportString());
+            }
+        }
     }
 }
