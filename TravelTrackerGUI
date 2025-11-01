@@ -11,55 +11,81 @@ import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
 import javafx.scene.text.Font;
 import javafx.stage.Stage;
+import javafx.stage.FileChooser;
+import javafx.stage.FileChooser.ExtensionFilter;
 
+import java.io.File;
+import java.io.IOException;
+import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-
 /*
  * Name: Todd Uhl
  * Course: 202610 Software Development I CEN-3024C-14877
- * Date: 10/20/2025
+ * Date: 10/31/2025
  *
  * Class: TravelTrackerGUI
  * Demo-ready, polished GUI with logo, colors, hover effects,
- * table styling, and search bar for Travel Tracker Phase 3.
+ * table styling, and search bar for Travel Tracker Phase 4.
  */
 public class TravelTrackerGUI extends Application {
-    private final TripService tripService = new TripService();
+    private TripService tripService;
     private final ObservableList<Trip> tripList = FXCollections.observableArrayList();
     private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy");
     private TableView<Trip> table;
 
     @Override
-    public void start(Stage stage) {
+    public void start(Stage stage) throws Exception {
         stage.setTitle("Travel Tracker DMS");
 
-//Logo & Header
+        //Ask user to choose or create a database
+        Alert dbChoice = new Alert(Alert.AlertType.CONFIRMATION);
+        dbChoice.setTitle("Database Setup");
+        dbChoice.setHeaderText("Would you like to create a new database or open an existing one?");
+        ButtonType createNew = new ButtonType("Create New");
+        ButtonType openExisting = new ButtonType("Open Existing");
+        dbChoice.getButtonTypes().setAll(createNew, openExisting);
+
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.getExtensionFilters().add(new ExtensionFilter("SQLite Database (*.db)", "*.db"));
+        fileChooser.setTitle("Select or Create Database File");
+
+        String dbPath = null;
+        ButtonType result = dbChoice.showAndWait().orElse(openExisting);
+
+        if (result == createNew) {
+            File file = fileChooser.showSaveDialog(stage);
+            if (file != null) dbPath = file.getAbsolutePath();
+        } else {
+            File file = fileChooser.showOpenDialog(stage);
+            if (file != null) dbPath = file.getAbsolutePath();
+        }
+
+        if (dbPath == null) {
+            showAlert("Error", "No database selected. Exiting application.");
+            return;
+        }
+
+        tripService = new TripService(dbPath);
+
+        //Header
         Image globeImage = new Image(getClass().getResourceAsStream("/globe.png"));
         ImageView globeView = new ImageView(globeImage);
-        globeView.setFitHeight(150); // increased size
+        globeView.setFitHeight(150);
         globeView.setPreserveRatio(true);
 
-// Header text
         Label header = new Label("Travel Tracker");
-        header.setFont(new Font("Segoe UI", 48)); // bigger font
+        header.setFont(new Font("Segoe UI", 48));
         header.setStyle("-fx-text-fill: #ffffff; -fx-font-weight: bold;");
 
-// Stack image above text
-        VBox headerBox = new VBox(10, globeView, header); // 10 px spacing
-        headerBox.setAlignment(Pos.CENTER); // center both horizontally
+        VBox headerBox = new VBox(10, globeView, header);
+        headerBox.setAlignment(Pos.CENTER);
         headerBox.setPadding(new Insets(20));
         headerBox.setStyle("-fx-background-color: #4682b4; -fx-border-radius: 5;");
 
-
-        //Table Setup
+        //Table
         table = new TableView<>();
-
-        table.setStyle(
-                "-fx-selection-bar: #3399FF;" +
-                "-fx-selection-bar-text: black;"
-        );
         TableColumn<Trip, Integer> idCol = new TableColumn<>("ID");
         idCol.setCellValueFactory(c -> new javafx.beans.property.SimpleObjectProperty<>(c.getValue().getId()));
 
@@ -82,7 +108,6 @@ public class TravelTrackerGUI extends Application {
         table.getColumns().addAll(idCol, destCol, dateCol, budgetCol, statusCol);
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
-        // Alternating row colors and completed highlight
         table.setRowFactory(tv -> new TableRow<>() {
             @Override
             protected void updateItem(Trip trip, boolean empty) {
@@ -90,9 +115,9 @@ public class TravelTrackerGUI extends Application {
                 if (trip == null || empty) {
                     setStyle("");
                 } else if (trip.isCompleted()) {
-                    setStyle("-fx-background-color: #d0f0c0;"); // green
+                    setStyle("-fx-background-color: #d0f0c0;");
                 } else if (getIndex() % 2 == 0) {
-                    setStyle("-fx-background-color: #f0f8ff;"); // light blue
+                    setStyle("-fx-background-color: #f0f8ff;");
                 } else {
                     setStyle("-fx-background-color: #ffffff;");
                 }
@@ -117,26 +142,8 @@ public class TravelTrackerGUI extends Application {
         Button deleteBtn = createStyledButton("Delete Trip");
         Button markBtn = createStyledButton("Toggle Complete");
         Button exportBtn = createStyledButton("Export Trips");
-        Button importBtn = createStyledButton("Import Trips");
 
-        //Sorting ComboBox
-        ComboBox<String> sortBox = new ComboBox<>();
-        sortBox.getItems().addAll(
-                "Sort by ID",
-                "Sort by Start Date",
-                "Sort by Destination",
-                "Sort by Budget (Low → High)",
-                "Sort by Budget (High → Low)"
-        );
-        sortBox.setPromptText("Sort Trips");
-
-        Button sortBtn = createStyledButton("Apply Sort");
-
-        HBox sortBoxArea = new HBox(10, sortBox, sortBtn);
-        sortBoxArea.setPadding(new Insets(10));
-        sortBoxArea.setAlignment(Pos.CENTER_LEFT);
-
-        //Search Bar
+        //Search
         TextField searchField = new TextField();
         searchField.setPromptText("Search by Destination or ID...");
         Button clearSearchBtn = createStyledButton("Clear");
@@ -151,8 +158,8 @@ public class TravelTrackerGUI extends Application {
             String filter = newVal.toLowerCase().trim();
             filteredData.setPredicate(trip -> {
                 if (filter.isEmpty()) return true;
-                return trip.getDestination().toLowerCase().contains(filter) ||
-                        String.valueOf(trip.getId()).contains(filter);
+                return trip.getDestination().toLowerCase().contains(filter)
+                        || String.valueOf(trip.getId()).contains(filter);
             });
         });
 
@@ -161,12 +168,11 @@ public class TravelTrackerGUI extends Application {
             filteredData.setPredicate(p -> true);
         });
 
-        //Layout for Inputs and Buttons
         HBox inputBox = new HBox(10, destField, startDatePicker, endDatePicker, budgetField, notesField, addBtn);
         inputBox.setPadding(new Insets(10));
         inputBox.setAlignment(Pos.CENTER_LEFT);
 
-        HBox buttonBox = new HBox(10, updateBtn, deleteBtn, markBtn, exportBtn, importBtn);
+        HBox buttonBox = new HBox(10, updateBtn, deleteBtn, markBtn, exportBtn);
         buttonBox.setPadding(new Insets(10));
         buttonBox.setAlignment(Pos.CENTER_LEFT);
 
@@ -187,33 +193,20 @@ public class TravelTrackerGUI extends Application {
                 Trip trip = tripService.createTrip(dest, start, end, budget, notes);
                 tripList.add(trip);
                 clearFields(destField, startDatePicker, endDatePicker, budgetField, notesField);
-            } catch (NumberFormatException ex) {
-                showAlert("Error", "Invalid budget amount.");
+            } catch (Exception ex) {
+                showAlert("Error", "Failed to add trip: " + ex.getMessage());
             }
-        });
-
-        updateBtn.setOnAction(e -> {
-            Trip selected = table.getSelectionModel().getSelectedItem();
-            if (selected == null) {
-                showAlert("Warning", "Select a trip to update.");
-                return;
-            }
-
-            selected.setDestination(destField.getText().isEmpty() ? selected.getDestination() : destField.getText());
-            if (startDatePicker.getValue() != null) selected.setStartDate(startDatePicker.getValue());
-            if (endDatePicker.getValue() != null) selected.setEndDate(endDatePicker.getValue());
-            if (!budgetField.getText().isEmpty()) selected.setBudget(Double.parseDouble(budgetField.getText()));
-            if (!notesField.getText().isEmpty()) selected.setNotes(notesField.getText());
-
-            table.refresh();
-            clearFields(destField, startDatePicker, endDatePicker, budgetField, notesField);
         });
 
         deleteBtn.setOnAction(e -> {
             Trip selected = table.getSelectionModel().getSelectedItem();
             if (selected != null) {
-                tripService.deleteTrip(selected.getId());
-                tripList.remove(selected);
+                try {
+                    tripService.deleteTrip(selected.getId());
+                    tripList.remove(selected);
+                } catch (SQLException ex) {
+                    showAlert("Error", "Failed to delete trip.");
+                }
             } else {
                 showAlert("Warning", "Select a trip to delete.");
             }
@@ -222,83 +215,50 @@ public class TravelTrackerGUI extends Application {
         markBtn.setOnAction(e -> {
             Trip selected = table.getSelectionModel().getSelectedItem();
             if (selected != null) {
-                selected.setCompleted(!selected.isCompleted());
-                table.refresh();
-            } else {
-                showAlert("Warning", "Select a trip to mark complete.");
+                try {
+                    selected.setCompleted(!selected.isCompleted());
+                    tripService.updateTrip(selected);
+                    table.refresh();
+                } catch (SQLException ex) {
+                    showAlert("Error", "Failed to update trip.");
+                }
             }
         });
 
         exportBtn.setOnAction(e -> {
-            TextInputDialog dialog = new TextInputDialog("trips.txt");
-            dialog.setHeaderText("Enter filename to export:");
-            dialog.showAndWait().ifPresent(filename -> {
+            FileChooser exportChooser = new FileChooser();
+            exportChooser.setTitle("Export Database File");
+            exportChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("SQLite Database (*.db)", "*.db"));
+            File exportFile = exportChooser.showSaveDialog(stage);
+            if (exportFile != null) {
                 try {
-                    java.io.PrintWriter writer = new java.io.PrintWriter(new java.io.FileWriter(filename));
-                    for (Trip trip : tripService.getTrips()) writer.println(trip.toExportString());
-                    writer.close();
-                    showAlert("Success", "Trips exported to " + filename);
-                } catch (Exception ex) {
-                    showAlert("Error", "Failed to export trips.");
-                }
-            });
-        });
-
-        importBtn.setOnAction(e -> {
-            TextInputDialog dialog = new TextInputDialog("trips.txt");
-            dialog.setHeaderText("Enter filename to import:");
-            dialog.showAndWait().ifPresent(filename -> {
-                try (var reader = new java.io.BufferedReader(new java.io.FileReader(filename))) {
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        String[] parts = line.split("\\|");
-                        if (parts.length == 7) {
-                            Trip t = new Trip(
-                                    Integer.parseInt(parts[0]),
-                                    parts[1],
-                                    LocalDate.parse(parts[2], formatter),
-                                    LocalDate.parse(parts[3], formatter),
-                                    Double.parseDouble(parts[4]),
-                                    parts[5],
-                                    Boolean.parseBoolean(parts[6])
-                            );
-                            tripService.addImportedTrip(t);
-                            tripList.add(t);
-                        }
+                    // Copy the current DB file to the chosen location
+                    File currentDb = new File(tripService.getDbPath());
+                    try (var in = new java.io.FileInputStream(currentDb);
+                         var out = new java.io.FileOutputStream(exportFile)) {
+                        in.transferTo(out);
                     }
-                    showAlert("Success", "Trips imported from " + filename);
-                } catch (Exception ex) {
-                    showAlert("Error", "Could not import trips.");
+                    showAlert("Success", "Database exported successfully to:\n" + exportFile.getAbsolutePath());
+                } catch (IOException ex) {
+                    showAlert("Error", "Failed to export database: " + ex.getMessage());
                 }
-            });
-        });
-
-        sortBtn.setOnAction(e -> {
-            String option = sortBox.getValue();
-            if (option == null) {
-                showAlert("Info", "Select a sorting option first.");
-                return;
             }
 
-            List<Trip> sorted = switch (option) {
-                case "Sort by ID" -> tripService.sortById();
-                case "Sort by Start Date" -> tripService.sortByStartDate();
-                case "Sort by Destination" -> tripService.sortByDestination();
-                case "Sort by Budget (Low → High)" -> tripService.sortByBudgetLowToHigh();
-                case "Sort by Budget (High → Low)" -> tripService.sortByBudgetHighToLow();
-                default -> tripService.getTrips();
-            };
 
-            tripList.setAll(sorted);
-        });
+    });
 
-        //Final Layout
-        VBox layout = new VBox(10, headerBox, inputBox, buttonBox, sortBoxArea, searchArea, table);
+        //Load trips
+        try {
+            tripList.addAll(tripService.getAllTrips());
+        } catch (SQLException e) {
+            showAlert("Error", "Failed to load trips from database.");
+        }
+
+        VBox layout = new VBox(10, headerBox, inputBox, buttonBox, searchArea, table);
         layout.setPadding(new Insets(15));
         layout.setStyle("-fx-background-color: #e6f2ff;");
 
-        Scene scene = new Scene(layout, 1000, 650);
-        stage.setScene(scene);
+        stage.setScene(new Scene(layout, 1000, 650));
         stage.show();
     }
 
@@ -323,9 +283,5 @@ public class TravelTrackerGUI extends Application {
         alert.setTitle(title);
         alert.setContentText(msg);
         alert.showAndWait();
-    }
-
-    public static void main(String[] args) {
-        launch(args);
     }
 }
