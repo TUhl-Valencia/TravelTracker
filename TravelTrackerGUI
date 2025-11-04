@@ -19,27 +19,29 @@ import java.io.IOException;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
-/*
- * Name: Todd Uhl
- * Course: 202610 Software Development I CEN-3024C-14877
- * Date: 10/31/2025
- *
- * Class: TravelTrackerGUI
- * Demo-ready, polished GUI with logo, colors, hover effects,
- * table styling, and search bar for Travel Tracker Phase 4.
+
+/**
+ * TravelTrackerGUI handles the user interface for the Travel Tracker application.
+ * It provides a polished JavaFX GUI with table, input fields, search, sorting, and database integration.
  */
 public class TravelTrackerGUI extends Application {
+
     private TripService tripService;
     private final ObservableList<Trip> tripList = FXCollections.observableArrayList();
     private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy");
     private TableView<Trip> table;
 
+    /**
+     * Initializes and displays the JavaFX GUI.
+     *
+     * @param stage primary stage for the application
+     * @throws Exception if database connection or UI setup fails
+     */
     @Override
     public void start(Stage stage) throws Exception {
         stage.setTitle("Travel Tracker DMS");
 
-        //Ask user to choose or create a database
+        // Ask user to choose or create a database
         Alert dbChoice = new Alert(Alert.AlertType.CONFIRMATION);
         dbChoice.setTitle("Database Setup");
         dbChoice.setHeaderText("Would you like to create a new database or open an existing one?");
@@ -69,7 +71,7 @@ public class TravelTrackerGUI extends Application {
 
         tripService = new TripService(dbPath);
 
-        //Header
+        // Header
         Image globeImage = new Image(getClass().getResourceAsStream("/globe.png"));
         ImageView globeView = new ImageView(globeImage);
         globeView.setFitHeight(150);
@@ -84,7 +86,7 @@ public class TravelTrackerGUI extends Application {
         headerBox.setPadding(new Insets(20));
         headerBox.setStyle("-fx-background-color: #4682b4; -fx-border-radius: 5;");
 
-        //Table
+        // Table
         table = new TableView<>();
         TableColumn<Trip, Integer> idCol = new TableColumn<>("ID");
         idCol.setCellValueFactory(c -> new javafx.beans.property.SimpleObjectProperty<>(c.getValue().getId()));
@@ -124,7 +126,7 @@ public class TravelTrackerGUI extends Application {
             }
         });
 
-        //Input Fields
+        // Input Fields
         TextField destField = new TextField();
         destField.setPromptText("Destination");
 
@@ -143,7 +145,7 @@ public class TravelTrackerGUI extends Application {
         Button markBtn = createStyledButton("Toggle Complete");
         Button exportBtn = createStyledButton("Export Trips");
 
-        //Search
+        // Search
         TextField searchField = new TextField();
         searchField.setPromptText("Search by Destination or ID...");
         Button clearSearchBtn = createStyledButton("Clear");
@@ -176,7 +178,7 @@ public class TravelTrackerGUI extends Application {
         buttonBox.setPadding(new Insets(10));
         buttonBox.setAlignment(Pos.CENTER_LEFT);
 
-        //Event Handlers
+        // Event Handlers
         addBtn.setOnAction(e -> {
             try {
                 String dest = destField.getText().trim();
@@ -221,7 +223,6 @@ public class TravelTrackerGUI extends Application {
             }
         });
 
-
         markBtn.setOnAction(e -> {
             Trip selected = table.getSelectionModel().getSelectedItem();
             if (selected != null) {
@@ -242,7 +243,6 @@ public class TravelTrackerGUI extends Application {
             File exportFile = exportChooser.showSaveDialog(stage);
             if (exportFile != null) {
                 try {
-                    // Copy the current DB file to the chosen location
                     File currentDb = new File(tripService.getDbPath());
                     try (var in = new java.io.FileInputStream(currentDb);
                          var out = new java.io.FileOutputStream(exportFile)) {
@@ -253,9 +253,8 @@ public class TravelTrackerGUI extends Application {
                     showAlert("Error", "Failed to export database: " + ex.getMessage());
                 }
             }
+        });
 
-
-    });
         updateBtn.setOnAction(e -> {
             Trip selected = table.getSelectionModel().getSelectedItem();
             if (selected == null) {
@@ -264,7 +263,6 @@ public class TravelTrackerGUI extends Application {
             }
 
             try {
-                // Open a dialog for editing trip details
                 Dialog<ButtonType> dialog = new Dialog<>();
                 dialog.setTitle("Edit Trip");
                 dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
@@ -307,13 +305,13 @@ public class TravelTrackerGUI extends Application {
             }
         });
 
-
-        //Load trips
+        // Load trips
         try {
             tripList.addAll(tripService.getAllTrips());
         } catch (SQLException e) {
             showAlert("Error", "Failed to load trips from database.");
         }
+
         // Sorting Options
         ComboBox<String> sortBox = new ComboBox<>();
         sortBox.getItems().addAll(
@@ -361,6 +359,12 @@ public class TravelTrackerGUI extends Application {
         stage.show();
     }
 
+    /**
+     * Creates a styled button with hover effects.
+     *
+     * @param text the button label
+     * @return a styled Button object
+     */
     private Button createStyledButton(String text) {
         Button btn = new Button(text);
         btn.setStyle("-fx-background-color: #4682b4; -fx-text-fill: white; -fx-font-weight: bold;");
@@ -369,6 +373,9 @@ public class TravelTrackerGUI extends Application {
         return btn;
     }
 
+    /**
+     * Clears all input fields.
+     */
     private void clearFields(TextField destField, DatePicker start, DatePicker end, TextField budget, TextField notes) {
         destField.clear();
         start.setValue(null);
@@ -377,6 +384,12 @@ public class TravelTrackerGUI extends Application {
         notes.clear();
     }
 
+    /**
+     * Displays an alert message.
+     *
+     * @param title the alert title
+     * @param msg   the alert message
+     */
     private void showAlert(String title, String msg) {
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.setTitle(title);
