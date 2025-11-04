@@ -1,7 +1,12 @@
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 
+/**
+ * Trip represents a single travel trip with all associated details.
+ * Used as the core data model in the Travel Tracker application.
+ */
 public class Trip {
+
     private int id;
     private String destination;
     private LocalDate startDate;
@@ -12,16 +17,17 @@ public class Trip {
 
     private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy");
 
-    /*
-     * Name: Todd Uhl
-     * Course: 202610 Software Development I CEN-3024C-14877
-     * Date: 10/31/2025
+    /**
+     * Constructs a Trip object.
      *
-     * Class: Trip
-     * This class represents an individual trip with details such as destination, dates, budget, notes,
-     * and completion status. It is the core data model for the Travel Tracker application.
+     * @param id          unique ID of the trip
+     * @param destination destination name
+     * @param startDate   start date
+     * @param endDate     end date
+     * @param budget      trip budget
+     * @param notes       optional notes
+     * @param completed   completion status
      */
-
     public Trip(int id, String destination, LocalDate startDate, LocalDate endDate, double budget, String notes, boolean completed) {
         this.id = id;
         this.destination = destination;
@@ -54,6 +60,11 @@ public class Trip {
     public boolean isCompleted() { return completed; }
     public void setCompleted(boolean completed) { this.completed = completed; }
 
+    /**
+     * Returns a string suitable for exporting to a text file.
+     *
+     * @return pipe-delimited string of trip data
+     */
     public String toExportString() {
         return id + "|" + destination + "|" +
                 startDate.format(formatter) + "|" +
